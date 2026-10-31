@@ -40,3 +40,7 @@ Claude Desktop config:
 ```sh
 uv run pytest
 ```
+
+## Licence
+
+MIT. See [LICENSE](LICENSE).
