@@ -47,7 +47,7 @@ Date = Annotated[str, Field(description="Date in YYYY-MM-DD format")]
 async def search_recipes(
     query: Annotated[str, Field(description="Text to search recipe names and ingredients for")],
 ) -> Any:
-    """Search for recipes by name or ingredients."""
+    """Search for recipes by name or ingredients. Each recipe includes a `url` linking to its Mealie page; quote it exactly when linking."""
     return await _call("search_recipes", query)
 
 
@@ -55,7 +55,7 @@ async def search_recipes(
 async def get_recipe(
     recipe_id: Annotated[str, Field(description="The recipe slug or ID")],
 ) -> Any:
-    """Get full details of a recipe including all ingredients and instructions."""
+    """Get full details of a recipe including all ingredients and instructions. Each recipe includes a `url` linking to its Mealie page; quote it exactly when linking."""
     return await _call("get_recipe", recipe_id)
 
 
@@ -131,7 +131,7 @@ async def create_recipe_from_url(
 
 @mcp.tool()
 async def get_meal_plan(start_date: Date, end_date: Date) -> Any:
-    """Get the meal plan for a date range."""
+    """Get the meal plan for a date range. Each recipe includes a `url` linking to its Mealie page; quote it exactly when linking."""
     return await _call("get_meal_plan", start_date, end_date)
 
 

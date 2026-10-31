@@ -13,6 +13,8 @@ An [MCP](https://modelcontextprotocol.io) server for a [Mealie](https://mealie.i
 | `create_recipe_from_url` | Import from a URL; falls back to a stub linking to the URL if scraping fails |
 | `get_meal_plan` / `add_to_meal_plan` / `remove_from_meal_plan` | Meal plan management |
 
+Every recipe returned (including those inside meal plan entries) has a `url` field pointing at its page in the Mealie web UI (`<MEALIE_URI>/g/<group>/r/<slug>`).
+
 ## Configuration
 
 Set `MEALIE_URI` (e.g. `https://meals.example.com`) and `MEALIE_API_TOKEN`, either in the environment or in a `.env` file.
