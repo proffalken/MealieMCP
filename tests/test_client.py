@@ -155,3 +155,82 @@ async def test_network_failure_becomes_mealie_error():
     client = MealieClient("https://mealie.test", "tok", transport=httpx.MockTransport(boom))
     with pytest.raises(MealieError, match="connection refused"):
         await client.get_recipe("x")
+
+
+SELF = ("GET", "/api/users/self")
+
+
+async def test_get_recipe_includes_page_url():
+    fake = FakeMealie(
+        {
+            SELF: (200, {"groupSlug": "home"}),
+            ("GET", "/api/recipes/beef-pies"): (200, {"slug": "beef-pies"}),
+        }
+    )
+    recipe = await make_client(fake).get_recipe("beef-pies")
+    assert recipe["url"] == "https://mealie.test/g/home/r/beef-pies"
+
+
+async def test_group_slug_is_looked_up_once():
+    fake = FakeMealie(
+        {
+            SELF: (200, {"groupSlug": "home"}),
+            ("GET", "/api/recipes/a"): (200, {"slug": "a"}),
+        }
+    )
+    client = make_client(fake)
+    await client.get_recipe("a")
+    await client.get_recipe("a")
+    assert sum(r.url.path == "/api/users/self" for r in fake.requests) == 1
+
+
+async def test_search_results_include_page_urls():
+    fake = FakeMealie(
+        {
+            SELF: (200, {"groupSlug": "home"}),
+            ("GET", "/api/recipes"): (200, {"items": [{"slug": "a"}, {"slug": "b"}]}),
+        }
+    )
+    result = await make_client(fake).search_recipes("x")
+    assert [i["url"] for i in result["items"]] == [
+        "https://mealie.test/g/home/r/a",
+        "https://mealie.test/g/home/r/b",
+    ]
+
+
+async def test_meal_plan_recipes_include_page_urls():
+    fake = FakeMealie(
+        {
+            SELF: (200, {"groupSlug": "home"}),
+            ("GET", "/api/households/mealplans"): (
+                200,
+                {"items": [{"id": 1, "recipe": {"slug": "a"}}, {"id": 2, "recipe": None}]},
+            ),
+        }
+    )
+    result = await make_client(fake).get_meal_plan("2026-11-01", "2026-11-07")
+    assert result["items"][0]["recipe"]["url"] == "https://mealie.test/g/home/r/a"
+    assert result["items"][1]["recipe"] is None
+
+
+async def test_created_recipe_includes_page_url():
+    fake = FakeMealie(
+        {
+            SELF: (200, {"groupSlug": "home"}),
+            ("POST", "/api/recipes"): (201, "pies"),
+            ("GET", "/api/recipes/pies"): (200, {"slug": "pies"}),
+        }
+    )
+    recipe = await make_client(fake).create_recipe(name="Pies")
+    assert recipe["url"] == "https://mealie.test/g/home/r/pies"
+
+
+async def test_base_url_trailing_slash_does_not_double_up():
+    fake = FakeMealie(
+        {
+            SELF: (200, {"groupSlug": "home"}),
+            ("GET", "/api/recipes/a"): (200, {"slug": "a"}),
+        }
+    )
+    client = MealieClient("https://mealie.test/", "tok", transport=httpx.MockTransport(fake))
+    assert (await client.get_recipe("a"))["url"] == "https://mealie.test/g/home/r/a"

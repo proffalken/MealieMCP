@@ -52,8 +52,10 @@ class MealieClient:
         token: str,
         transport: httpx.AsyncBaseTransport | None = None,
     ):
+        self._base_url = base_url.rstrip("/")
+        self._group_slug: str | None = None
         self._http = httpx.AsyncClient(
-            base_url=base_url.rstrip("/"),
+            base_url=self._base_url,
             headers={"Authorization": f"Bearer {token}"},
             timeout=60,
             transport=transport,
@@ -70,13 +72,41 @@ class MealieClient:
             )
         return response.json() if response.content else None
 
+    # Recipe page links
+
+    async def _recipe_url_prefix(self) -> str | None:
+        """Web page prefix for recipes, e.g. https://host/g/<group>/r/.
+
+        Mealie v3 recipe pages live under the group's slug, which we look up once.
+        """
+        if self._group_slug is None:
+            me = await self._request("GET", "/api/users/self")
+            self._group_slug = (me or {}).get("groupSlug") or ""
+        if not self._group_slug:
+            return None
+        return f"{self._base_url}/g/{self._group_slug}/r/"
+
+    async def _add_urls(self, recipes: list[Any]) -> None:
+        """Add a `url` to each recipe dict that has a slug (in place)."""
+        recipes = [r for r in recipes if isinstance(r, dict) and r.get("slug")]
+        if not recipes:
+            return
+        prefix = await self._recipe_url_prefix()
+        if prefix:
+            for r in recipes:
+                r["url"] = prefix + r["slug"]
+
     # Recipes
 
     async def search_recipes(self, query: str) -> Any:
-        return await self._request("GET", "/api/recipes", params={"search": query})
+        result = await self._request("GET", "/api/recipes", params={"search": query})
+        await self._add_urls(result.get("items", []))
+        return result
 
     async def get_recipe(self, slug: str) -> Any:
-        return await self._request("GET", f"/api/recipes/{slug}")
+        recipe = await self._request("GET", f"/api/recipes/{slug}")
+        await self._add_urls([recipe])
+        return recipe
 
     async def create_recipe(self, name: str, **fields) -> Any:
         slug = await self._request("POST", "/api/recipes", json={"name": name})
@@ -109,18 +139,22 @@ class MealieClient:
     # Meal plans
 
     async def get_meal_plan(self, start_date: str, end_date: str) -> Any:
-        return await self._request(
+        result = await self._request(
             "GET",
             "/api/households/mealplans",
             params={"start_date": start_date, "end_date": end_date},
         )
+        await self._add_urls([e.get("recipe") for e in result.get("items", [])])
+        return result
 
     async def add_to_meal_plan(self, recipe_id: str, date: str, meal_type: str) -> Any:
-        return await self._request(
+        entry = await self._request(
             "POST",
             "/api/households/mealplans",
             json={"date": date, "entryType": meal_type, "recipeId": recipe_id},
         )
+        await self._add_urls([entry.get("recipe")])
+        return entry
 
     async def remove_from_meal_plan(self, plan_entry_id: int) -> Any:
         return await self._request(
