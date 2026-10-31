@@ -1,0 +1,29 @@
+[project]
+name = "mealie-mcp"
+version = "0.2.0"
+description = "MCP server for a Mealie recipe manager"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "httpx>=0.28.1",
+    "mcp>=2.3.0",
+    "python-dotenv>=1.2.4",
+]
+
+[project.scripts]
+mealie-mcp = "mealie_mcp.server:main"
+
+[dependency-groups]
+dev = [
+    "pytest>=9",
+    "pytest-asyncio>=1",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+testpaths = ["tests"]
